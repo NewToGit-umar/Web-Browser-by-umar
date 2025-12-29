@@ -58,11 +58,14 @@ namespace AdvancedWebBrowser
         public List<string> GetSuggestions(string prefix)
         {
             var suggestions = new List<(string word, int count)>();
-            var prefixNode = FindNode(prefix.ToLower());
+            if (string.IsNullOrEmpty(prefix)) return new List<string>();
+
+            var prefixLower = prefix.ToLower();
+            var prefixNode = FindNode(prefixLower);
 
             if (prefixNode != null)
             {
-                CollectSuggestions(prefixNode, prefix, suggestions);
+                CollectSuggestions(prefixNode, prefixLower, suggestions);
             }
 
             // Sort by search count (popularity) and then alphabetically

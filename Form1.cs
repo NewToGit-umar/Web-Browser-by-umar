@@ -23,6 +23,8 @@ namespace AdvancedWebBrowser
 
         private bool suppressTabSelectionChanged = false;
 
+        private List<string> allSuggestions = new List<string>();
+
         public BrowserForm()
         {
             InitializeComponent();
@@ -36,6 +38,16 @@ namespace AdvancedWebBrowser
             InitializeBrowser();
             //TestUrlFormatting();
 
+            // wire suggestions list key handler so Enter activates selected suggestion
+            try
+            {
+                if (suggestionsListBox != null)
+                {
+                    suggestionsListBox.KeyDown += SuggestionsListBox_KeyDown;
+                }
+            }
+            catch { }
+
             // Apply prefs
             if (!string.IsNullOrWhiteSpace(prefs.HomePage))
                 homePage = prefs.HomePage;
@@ -43,6 +55,26 @@ namespace AdvancedWebBrowser
                 searchEngineComboBox.SelectedIndex = prefs.SearchEngineIndex;
             if (forceSearchCheckBox != null)
                 forceSearchCheckBox.Checked = prefs.ForceSearch;
+        }
+
+        private void SuggestionsListBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Enter)
+            {
+                try
+                {
+                    if (suggestionsListBox.SelectedItem != null)
+                    {
+                        var selected = suggestionsListBox.SelectedItem.ToString();
+                        addressBar.Text = selected;
+                        HideSuggestions();
+                        NavigateToUrl(selected);
+                        e.Handled = true;
+                        e.SuppressKeyPress = true;
+                    }
+                }
+                catch { }
+            }
         }
 
         private void ApplyTheme(string theme)
@@ -91,7 +123,8 @@ namespace AdvancedWebBrowser
             tabManager.TabChanged += TabManager_TabChanged;
 
             // Pre-populate with some suggestions
-            PrepopulateSuggestions();
+            // Load suggestions from disk (suggestions.txt). If not available, fall back to built-in list.
+            LoadSuggestionsFromFile();
 
             // Ensure default search engine selection
             if (searchEngineComboBox != null && searchEngineComboBox.Items.Count > 0)
@@ -856,10 +889,43 @@ namespace AdvancedWebBrowser
         private void TypingTimer_Tick(object sender, EventArgs e)
         {
             typingTimer.Stop();
-            if (!string.IsNullOrEmpty(addressBar.Text))
+            var text = (addressBar.Text ?? string.Empty).Trim();
+            if (!string.IsNullOrEmpty(text))
             {
-                var suggestions = suggestionTree.GetSuggestions(addressBar.Text);
-                ShowSuggestions(suggestions);
+                var q = text.ToLower();
+
+                // Prefer prefix matches from the flat list (fast and reliable)
+                List<string> results = new List<string>();
+                if (allSuggestions != null && allSuggestions.Count > 0)
+                {
+                    results = allSuggestions
+                        .Where(s => s != null && s.StartsWith(q, StringComparison.OrdinalIgnoreCase))
+                        .Take(10)
+                        .ToList();
+
+                    // if no prefix matches, fall back to substring matches
+                    if (results.Count == 0)
+                    {
+                        results = allSuggestions
+                            .Where(s => s != null && s.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0)
+                            .Take(10)
+                            .ToList();
+                    }
+                }
+
+                // If we still have no results and the trie is populated, try trie
+                if ((results == null || results.Count == 0) && suggestionTree != null)
+                {
+                    try
+                    {
+                        var trieResults = suggestionTree.GetSuggestions(q);
+                        if (trieResults != null && trieResults.Count > 0)
+                            results = trieResults.Take(10).ToList();
+                    }
+                    catch { }
+                }
+
+                ShowSuggestions(results ?? new List<string>());
             }
             else
             {
@@ -1014,20 +1080,98 @@ namespace AdvancedWebBrowser
             }
         }
 
-        private void PrepopulateSuggestions()
+        private string FindFileUpwards(string startDir, string fileName, int maxLevels = 6)
         {
-            string[] commonSites = {
-                "google.com", "github.com", "stackoverflow.com", "microsoft.com",
-                "youtube.com", "facebook.com", "twitter.com", "linkedin.com",
-                "wikipedia.org", "amazon.com", "reddit.com", "netflix.com",
-                "chat.openai.com", "web.whatsapp.com", "gemini.google.com",
-                "archive.org", "discord.com", "instagram.com", "spotify.com"
-            };
-
-            foreach (var site in commonSites)
+            try
             {
-                suggestionTree.AddSuggestion(site);
+                var dir = new DirectoryInfo(startDir);
+                for (int i = 0; i < maxLevels && dir != null; i++)
+                {
+                    var candidate = Path.Combine(dir.FullName, fileName);
+                    if (File.Exists(candidate)) return candidate;
+                    dir = dir.Parent;
+                }
             }
+            catch { }
+            return null;
+        }
+
+        private void LoadSuggestionsFromFile()
+        {
+            try
+            {
+                // Determine user-writable suggestions path (%AppData%\UmarBrowser\suggestions.txt)
+                var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+                var userDir = Path.Combine(appData, "UmarBrowser");
+                Directory.CreateDirectory(userDir);
+                var userFile = Path.Combine(userDir, "suggestions.txt");
+
+                // Search for a canonical file by walking up from baseDir and current directory
+                var baseDir = AppDomain.CurrentDomain.BaseDirectory ?? string.Empty;
+                var sourceFile = FindFileUpwards(baseDir, "suggestions.txt", 8)
+                                 ?? FindFileUpwards(Directory.GetCurrentDirectory(), "suggestions.txt", 8);
+
+                // If we found a canonical source and user copy missing, copy it to AppData for runtime use and future updates.
+                if (!string.IsNullOrWhiteSpace(sourceFile) && !File.Exists(userFile))
+                {
+                    try
+                    {
+                        File.Copy(sourceFile, userFile, false);
+                    }
+                    catch { }
+                }
+
+                // If user file exists, load from there. Otherwise, if sourceFile exists, load from it.
+                string loadFrom = null;
+                if (File.Exists(userFile)) loadFrom = userFile;
+                else if (!string.IsNullOrWhiteSpace(sourceFile)) loadFrom = sourceFile;
+
+                if (!string.IsNullOrWhiteSpace(loadFrom))
+                {
+                    var lines = File.ReadAllLines(loadFrom);
+                    allSuggestions.Clear();
+                    suggestionTree = new SearchSuggestionTree(); // reset tree to avoid duplicates
+                    foreach (var line in lines)
+                    {
+                        var s = line?.Trim();
+                        if (!string.IsNullOrWhiteSpace(s))
+                        {
+                            allSuggestions.Add(s);
+                            suggestionTree.AddSuggestion(s);
+                        }
+                    }
+
+                    // Log diagnostics to help verify loading worked
+                    try
+                    {
+                        var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug_search.log");
+                        var sample = string.Join(",", allSuggestions.Take(10));
+                        File.AppendAllText(logPath, DateTime.Now.ToString("o") + " Loaded suggestions from: " + loadFrom + " Count:" + allSuggestions.Count + " Sample:" + sample + Environment.NewLine);
+                    }
+                    catch { }
+
+                    return;
+                }
+
+                // Log failure to find suggestions file
+                try
+                {
+                    var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug_search.log");
+                    File.AppendAllText(logPath, DateTime.Now.ToString("o") + " No suggestions.txt found in candidates." + Environment.NewLine);
+                }
+                catch { }
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    var logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "debug_search.log");
+                    File.AppendAllText(logPath, DateTime.Now.ToString("o") + " LoadSuggestionsFromFile exception: " + ex.ToString() + Environment.NewLine);
+                }
+                catch { }
+            }
+
+            // fallback: do nothing (no hard-coded list)
         }
     }
 }

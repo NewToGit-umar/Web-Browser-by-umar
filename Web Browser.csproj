@@ -104,6 +104,7 @@
     <Content Include="DOCUMENTATION_INDEX.txt" />
     <Content Include="PROJECT_COMPLETION_REPORT.txt" />
     <Content Include="QUICK_REFERENCE.txt" />
+    <Content Include="suggestions.txt" />
     <Content Include="TAB_CLOSING_FIX.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
