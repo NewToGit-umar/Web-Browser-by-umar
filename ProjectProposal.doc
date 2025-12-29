@@ -1,0 +1,149 @@
+Umar Browser
+Project Proposal
+
+------------------------------------------------------------
+Cover Page
+------------------------------------------------------------
+
+Umar Browser
+Lightweight, privacy-aware Windows web browser
+
+Prepared by: Umar Browser Team
+Date: ___________
+Version: 1.0
+
+Contact: [your.email@example.com]
+
+------------------------------------------------------------
+Table of Contents
+------------------------------------------------------------
+1. Executive Summary
+2. Project Overview
+3. Objectives
+4. Scope
+5. Key Features
+6. Technical Architecture
+7. Technology Stack
+8. Milestones & Timeline
+9. Risks & Mitigations
+10. Future Enhancements
+11. Required Resources
+12. Success Criteria
+13. Appendix
+
+------------------------------------------------------------
+1. Executive Summary
+------------------------------------------------------------
+Umar Browser is a lightweight Windows desktop browser built on the .NET Framework (4.7.2) using the WinForms `WebBrowser` control. The goal is to deliver a small-footprint, user-friendly browser with tabbed browsing, a built-in download manager, search suggestions, and compatibility fallbacks that open modern sites externally when required.
+
+------------------------------------------------------------
+2. Project Overview
+------------------------------------------------------------
+Many users and legacy environments require a low-resource browsing solution with focused features. Umar Browser targets that need by providing a minimal, extensible UI plus core browser functionality suitable for Windows desktop workflows.
+
+------------------------------------------------------------
+3. Objectives
+------------------------------------------------------------
+- Build a stable desktop browser for Windows (.NET Framework 4.7.2).
+- Implement tabbed browsing with per-tab history and navigation.
+- Provide an integrated Download Manager for common file types.
+- Improve search navigation with suggestion and fallback logic.
+- Keep UI lightweight and easy to extend.
+
+------------------------------------------------------------
+4. Scope
+------------------------------------------------------------
+In-scope:
+- Tabbed UI and per-tab WebBrowser instances.
+- Address bar with search engine selection and suggestions.
+- Internal download manager with queue and basic progress.
+- Compatibility fallbacks for modern sites.
+
+Out-of-scope (initial release):
+- Full Chromium-based engine. (Consider WebView2 later.)
+- Extension ecosystem or ad-blocking in v1.
+
+------------------------------------------------------------
+5. Key Features
+------------------------------------------------------------
+- Tabbed browsing with Back / Forward / Refresh / Home controls.
+- Address bar supporting Google, Bing, Yahoo, DuckDuckGo.
+- Search suggestion engine with delayed typing.
+- Built-in Download Manager that queues and manages downloads.
+- Per-tab history management via `TabManager`.
+- Light / Dark theme support through preferences.
+- Keyboard shortcuts: Ctrl+T (new tab), Ctrl+W (close tab), Ctrl+Tab (next tab).
+
+------------------------------------------------------------
+6. Technical Architecture
+------------------------------------------------------------
+- UI: Windows Forms (WinForms) with a `TabControl` per tab containing a `WebBrowser` control.
+- TabManager: linked list of `TabNode` objects (stores title, URL, browser, history).
+- DownloadManager: wrapper around `WebClient`/`HttpClient` with events for progress and completion.
+- SearchSuggestionTree: in-memory trie for prefix suggestions and popularity tracking.
+- Navigation: centralized `BrowserNavigate` handling downloads, internal navigation, and external fallbacks.
+- Persistence: `UserPreferences` persisted to disk (home page, theme, default search engine).
+
+------------------------------------------------------------
+7. Technology Stack
+------------------------------------------------------------
+- Language: C# (7.3)
+- Platform: .NET Framework 4.7.2
+- UI: Windows Forms
+- Libraries: System.Net (`WebClient`/`HttpClient`), System.Windows.Forms, System.Drawing
+
+------------------------------------------------------------
+8. Milestones & Timeline
+------------------------------------------------------------
+- Week 1: Project scaffolding, UI layout, tab control, basic navigation.
+- Week 2: Implement TabManager and per-tab history.
+- Week 3: DownloadManager with queue and progress reporting.
+- Week 4: Search suggestions, preferences persistence.
+- Week 5: Compatibility handling and fallback logic; UI polish.
+- Week 6: Testing, bug fixes, packaging.
+
+------------------------------------------------------------
+9. Risks & Mitigations
+------------------------------------------------------------
+- Risk: WinForms `WebBrowser` uses IE engine; modern sites may break.
+  Mitigation: detect compatibility issues and open externally; plan migration to WebView2.
+
+- Risk: Some downloads are initiated via complex JavaScript (not direct hrefs).
+  Mitigation: intercept navigations, attach DOM event handlers, or use network-level downloads via `HttpClient` when possible.
+
+- Risk: Security and mixed-content warnings.
+  Mitigation: present warnings and open externally where appropriate.
+
+------------------------------------------------------------
+10. Future Enhancements
+------------------------------------------------------------
+- Migrate to WebView2 (Chromium) for modern rendering.
+- Add extension support and ad-blocking options.
+- Improve download capabilities (resume, multi-connection, throttling).
+- Private browsing mode and cookie/session controls.
+
+------------------------------------------------------------
+11. Required Resources
+------------------------------------------------------------
+- Developers: 1-2 experienced with WinForms and .NET networking.
+- QA/Testers: 1 tester for cross-site compatibility and functionality testing.
+- Optional: CI/CD, code repository, packaging tools.
+
+------------------------------------------------------------
+12. Success Criteria
+------------------------------------------------------------
+- Builds and runs on Windows 10/11 with .NET Framework 4.7.2.
+- Tabbed browsing functions correctly with navigation controls.
+- Download manager starts and tracks downloads for supported file types.
+- Search suggestions and navigation are responsive.
+- Compatibility fallbacks work for modern/unsupported sites.
+
+------------------------------------------------------------
+13. Appendix
+------------------------------------------------------------
+- Contact and versioning information
+- Notes about next steps: WebView2 migration planning, advanced download strategies.
+
+Prepared by: Umar Browser Team
+Date: ___________
+Version: 1.0
