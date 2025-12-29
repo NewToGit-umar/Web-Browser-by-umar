@@ -1,4 +1,4 @@
-Umar Browser — Lightweight WinForms Browser
+WEB Browser — Lightweight WinForms Browser
 ==========================================
 
 A small, focused Windows Forms web browser built for learning and experimentation. It combines a simple tabbed UI, an embedded `WebBrowser` control, and a built-in download manager so you can explore embedding web content and handling downloads in a desktop app.
